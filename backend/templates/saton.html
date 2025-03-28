@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>포스트 사통판달 실시간 메시지</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        h1 {
+            margin-top: 60px;
+            color: #333;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+        }
+
+        input,
+        select,
+        button {
+            padding: 6px;
+            margin: 4px;
+        }
+
+        .top-bar {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: #f9f9f9;
+            padding: 8px 16px;
+            border-radius: 6px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+            z-index: 999;
+        }
+
+        .keyword-tag {
+            display: inline-block;
+            background: #eef;
+            border-radius: 12px;
+            padding: 4px 10px;
+            margin: 2px;
+            font-size: 14px;
+        }
+
+        .keyword-tag button {
+            background: none;
+            border: none;
+            color: #555;
+            margin-left: 4px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="top-bar">
+        <a href="/" style="margin-right: 12px; text-decoration: none; font-weight: bold;">🏪 육의전</a>
+        <a href="/saton" style="text-decoration: none; font-weight: bold;">📨 사통팔달</a>
+    </div>
+
+    <h1>📨 사통팔달 실시간 메시지</h1>
+
+    <label for="server">서버 선택:</label>
+    <select id="server" onchange="changeServer(this.value)">
+        <option value="1">백호</option>
+        <option value="2">주작</option>
+        <option value="3">현무</option>
+        <option value="4">청룡</option>
+    </select>
+
+    <label for="keyword">메시지 검색어:</label>
+    <input type="text" id="keyword" placeholder="예: 강화, 무기, 판매">
+
+    <button id="expand-button">➕ 더보기</button>
+
+    <div style="margin-top: 20px;">
+        <label for="alertKeyword">🔔 알림 키워드 등록:</label>
+        <input type="text" id="alertKeyword" placeholder="예: 고천극">
+        <button onclick="addAlertKeyword()">추가</button>
+        <div id="alertKeywordList"></div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>닉네임</th>
+                <th>메시지</th>
+                <th>보낸 시간</th>
+            </tr>
+        </thead>
+        <tbody id="message-table"></tbody>
+    </table>
+
+    <script>
+        let currentServer = localStorage.getItem("satonServer") || "3";
+        document.getElementById("server").value = currentServer;
+
+        let displayLimit = 25;
+        const displaySteps = [25, 40, 50];
+        let currentStep = 0;
+
+        const expandButton = document.getElementById("expand-button");
+        const lastSeenMessageIds = new Set();
+
+        function changeServer(value) {
+            currentServer = value;
+            localStorage.setItem("satonServer", value);
+            fetchMessages();
+        }
+
+        function getAlertKeywords() {
+            return JSON.parse(localStorage.getItem("alertKeywords") || "[]");
+        }
+
+        function setAlertKeywords(keywords) {
+            localStorage.setItem("alertKeywords", JSON.stringify(keywords));
+        }
+
+        function renderAlertKeywords() {
+            const container = document.getElementById("alertKeywordList");
+            container.innerHTML = "";
+            getAlertKeywords().forEach((keyword, index) => {
+                const tag = document.createElement("span");
+                tag.className = "keyword-tag";
+                tag.innerHTML = `#${keyword}<button onclick="removeAlertKeyword(${index})">×</button>`;
+                container.appendChild(tag);
+            });
+        }
+
+        async function addAlertKeyword() {
+            const input = document.getElementById("alertKeyword");
+            const keyword = input.value.trim();
+            if (!keyword) return;
+
+            try {
+                const res = await fetch("/alert-keywords", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ keyword })
+                });
+                const data = await res.json();
+                setAlertKeywords(data.keywords);
+                renderAlertKeywords();
+                input.value = "";
+            } catch (err) {
+                console.error("❌ 키워드 추가 실패:", err);
+            }
+        }
+
+        async function removeAlertKeyword(index) {
+            const keywords = getAlertKeywords();
+            const keyword = keywords[index];
+            if (!keyword) return;
+
+            try {
+                const res = await fetch("/alert-keywords", {
+                    method: "DELETE",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ keyword })
+                });
+                const data = await res.json();
+                setAlertKeywords(data.keywords);
+                renderAlertKeywords();
+            } catch (err) {
+                console.error("❌ 키워드 삭제 실패:", err);
+            }
+        }
+
+        document.getElementById("alertKeyword").addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                addAlertKeyword();
+            }
+        });
+
+        async function fetchMessages() {
+            const keyword = document.getElementById("keyword").value.trim();
+            let url = `/proxy-saton?server=${currentServer}`;
+            if (keyword) {
+                url += `&content=${encodeURIComponent(keyword)}`;
+            }
+
+            try {
+                const res = await fetch(url);
+                const json = await res.json();
+                let messages = json.content || [];
+
+                const table = document.getElementById("message-table");
+                table.innerHTML = "";
+
+                if (messages.length === 0) {
+                    table.innerHTML = '<tr><td colspan="3" style="color: gray">검색 결과 없음 😥</td></tr>';
+                    return;
+                }
+
+                const keywords = getAlertKeywords();
+
+                messages.slice(0, displayLimit).forEach(msg => {
+                    const row = document.createElement("tr");
+                    const nickname = msg.nickname || "익명";
+                    const content = msg.content;
+                    const timeAgo = msg.timeAgo || new Date(msg.createdAt).toLocaleString();
+
+                    row.innerHTML = `
+                        <td>${nickname}</td>
+                        <td>${content}</td>
+                        <td>${timeAgo}</td>
+                    `;
+
+                    table.appendChild(row);
+
+                    // ✅ 알림 처리
+                    if (!lastSeenMessageIds.has(msg.id)) {
+                        lastSeenMessageIds.add(msg.id);
+                        const createdAt = new Date(msg.createdAt);
+                        const now = new Date();
+                        const secondsAgo = (now - createdAt) / 1000;
+
+                        if (secondsAgo < 20) {
+                            keywords.forEach(kw => {
+                                if (content.includes(kw)) {
+                                    alert(`🔔 메시지가 도착했습니다: ${content}`);
+                                }
+                            });
+                        }
+                    }
+                });
+            } catch (err) {
+                console.error("❌ 메시지 로딩 실패:", err);
+            }
+        }
+
+        document.getElementById("keyword").addEventListener("input", () => {
+            fetchMessages();
+        });
+
+        expandButton.addEventListener("click", () => {
+            currentStep = (currentStep + 1) % displaySteps.length;
+            displayLimit = displaySteps[currentStep];
+
+            if (currentStep === displaySteps.length - 1) {
+                expandButton.textContent = "➖ 축소";
+            } else {
+                expandButton.textContent = "➕ 더보기";
+            }
+
+            fetchMessages();
+        });
+
+        fetch("/alert-keywords")
+            .then(res => res.json())
+            .then(data => {
+                setAlertKeywords(data);
+                renderAlertKeywords();
+            });
+
+        renderAlertKeywords();
+        fetchMessages();
+        setInterval(fetchMessages, 15000);
+    </script>
+</body>
+
+</html>

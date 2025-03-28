@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <title>육의전 실시간 검색기</title>
+    <style>
+        body {
+            font-family: Arial;
+            padding: 20px;
+        }
+
+        h1 {
+            margin-top: 60px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: center;
+        }
+
+        input,
+        select,
+        button {
+            padding: 6px;
+            margin: 4px;
+        }
+
+        .autocomplete-list {
+            border: 1px solid #ccc;
+            max-height: 120px;
+            overflow-y: auto;
+            position: absolute;
+            background: white;
+            z-index: 99;
+            display: none;
+        }
+
+        .autocomplete-item {
+            padding: 6px;
+            cursor: pointer;
+        }
+
+        .autocomplete-item:hover {
+            background: #f0f0f0;
+        }
+
+        .top-bar {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: #f9f9f9;
+            padding: 8px 16px;
+            border-radius: 6px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+            z-index: 999;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="top-bar">
+        <a href="/" style="margin-right: 12px; text-decoration: none; font-weight: bold;">🏪 육의전</a>
+        <a href="/saton" style="text-decoration: none; font-weight: bold;">📨 사통팔달</a>
+    </div>
+
+    <h1>육의전 실시간 검색</h1>
+
+    <label for="server">서버 선택:</label>
+    <select id="server">
+        <option>백호</option>
+        <option>주작</option>
+        <option>현무</option>
+        <option>청룡</option>
+    </select>
+
+    <br><br>
+
+    <label for="keyword">아이템 이름:</label>
+    <input type="text" id="keyword" placeholder="예: 천상초" autocomplete="off">
+    <label><input type="checkbox" id="exactSearch"> 정확한 이름만 검색</label>
+
+    <div id="autocomplete" class="autocomplete-list"></div>
+
+    <button onclick="addToWatchlist()">➕ 관심 목록에 추가</button>
+
+    <h2>검색 결과</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>아이템명</th>
+                <th>판매자</th>
+                <th>수량</th>
+                <th>가격</th>
+            </tr>
+        </thead>
+        <tbody id="result"></tbody>
+    </table>
+
+    <h2>📌 관심 목록 시세 분석</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>아이템명</th>
+                <th>서버</th>
+                <th>최저가</th>
+                <th>평균가</th>
+                <th>삭제</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in analyzed %}
+            <tr>
+                <td>{{ item.item }}</td>
+                <td>{{ item.server }}</td>
+                <td>
+                    {% if item.lowest is defined and item.lowest is not none %}
+                    {{ "{:,}".format(item.lowest) }}
+                    {% else %}
+                    없음
+                    {% endif %}
+                </td>
+                <td>
+                    {% if item.average is defined and item.average is not none %}
+                    {{ "{:,}".format(item.average) }}
+                    {% else %}
+                    없음
+                    {% endif %}
+                </td>
+                <td>
+                    <button onclick="removeFromWatchlist('{{ item.item }}', '{{ item.server }}')">❌ 삭제</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <script>
+        const serverSelect = document.getElementById("server");
+        const keywordInput = document.getElementById("keyword");
+        const resultTable = document.getElementById("result");
+        const autocompleteBox = document.getElementById("autocomplete");
+        const exactCheckbox = document.getElementById("exactSearch");
+
+        serverSelect.value = localStorage.getItem("selectedServer") || "현무";
+        serverSelect.addEventListener("change", () => {
+            localStorage.setItem("selectedServer", serverSelect.value);
+            performSearch();
+        });
+
+        let autocompleteItems = [];
+        let selectedIndex = -1;
+        let autocompleteEntered = false;
+        let pendingInitialArrowDown = false;
+
+        keywordInput.addEventListener("keydown", (e) => {
+            if (e.key === "ArrowDown") {
+                e.preventDefault();
+                if (!autocompleteEntered) {
+                    pendingInitialArrowDown = true;
+                    performSearch();
+                } else if (autocompleteItems.length > 0) {
+                    selectedIndex = (selectedIndex + 1) % autocompleteItems.length;
+                    updateHighlight();
+                }
+            } else if (e.key === "ArrowUp" && autocompleteItems.length) {
+                e.preventDefault();
+                selectedIndex = (selectedIndex - 1 + autocompleteItems.length) % autocompleteItems.length;
+                updateHighlight();
+            } else if (e.key === "Enter" && selectedIndex >= 0) {
+                e.preventDefault();
+                const selected = autocompleteItems[selectedIndex];
+                if (selected) {
+                    keywordInput.value = selected.textContent;
+                    clearAutocomplete();
+                    performSearch();
+                }
+            }
+        });
+
+        keywordInput.addEventListener("input", () => {
+            performSearch();
+        });
+
+        function clearAutocomplete() {
+            autocompleteBox.style.display = "none";
+            autocompleteBox.innerHTML = "";
+            autocompleteItems = [];
+            selectedIndex = -1;
+            autocompleteEntered = false;
+        }
+
+        async function performSearch() {
+            const keyword = keywordInput.value.trim();
+            const server = serverSelect.value;
+            const exact = exactCheckbox.checked ? "true" : "false";
+
+            clearAutocomplete();
+
+            try {
+                let res;
+                if (!keyword) {
+                    res = await fetch(`/search?server=${server}`);
+                } else {
+                    res = await fetch(`/search?keyword=${encodeURIComponent(keyword)}&server=${server}&exact=${exact}`);
+                }
+                const data = await res.json();
+                renderSearchResults(data, !!keyword);
+
+                if (keyword) {
+                    const unique = [...new Set(data.map(d => d.itemName))].slice(0, 10);
+                    if (unique.length > 0) {
+                        autocompleteBox.style.display = "block";
+                    }
+
+                    unique.forEach((name, i) => {
+                        const div = document.createElement("div");
+                        div.className = "autocomplete-item";
+                        div.textContent = name;
+
+                        div.addEventListener("mouseenter", () => {
+                            selectedIndex = i;
+                            updateHighlight();
+                        });
+
+                        div.onclick = () => {
+                            keywordInput.value = name;
+                            clearAutocomplete();
+                            performSearch();
+                        };
+                        autocompleteBox.appendChild(div);
+                        autocompleteItems.push(div);
+                    });
+
+                    if (unique.includes(keyword)) {
+                        clearAutocomplete();
+                    } else {
+                        updateHighlight();
+                    }
+
+                    if (pendingInitialArrowDown && !autocompleteEntered && autocompleteItems.length > 0) {
+                        autocompleteEntered = true;
+                        selectedIndex = 0;
+                        updateHighlight();
+                        pendingInitialArrowDown = false;
+                    }
+                }
+            } catch (err) {
+                console.error("❌ 검색 실패:", err);
+            }
+        }
+
+        function updateHighlight() {
+            autocompleteItems.forEach((item, i) => {
+                const isSelected = i === selectedIndex;
+                item.style.background = isSelected ? "#ddd" : "#fff";
+                if (isSelected) {
+                    item.scrollIntoView({ block: "nearest" });
+                }
+            });
+        }
+
+        function renderSearchResults(data, shouldSort = false) {
+            resultTable.innerHTML = "";
+
+            if (!data || data.length === 0) {
+                resultTable.innerHTML = `<tr><td colspan="4" style="text-align:center; color:gray;">결과 없음 😥</td></tr>`;
+                return;
+            }
+
+            if (shouldSort) {
+                data.sort((a, b) => a.price - b.price);
+            }
+
+            data.forEach(row => {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td><strong>${row.itemName}</strong></td>
+                    <td style="color:blue">${row.characterName}</td>
+                    <td>${row.quantity}</td>
+                    <td>${row.price.toLocaleString()}</td>
+                `;
+                resultTable.appendChild(tr);
+            });
+        }
+
+        function addToWatchlist() {
+            const item = keywordInput.value.trim();
+            const server = serverSelect.value;
+            if (!item) return;
+
+            fetch("/watchlist", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ item, server })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === "added") {
+                        location.reload();
+                    }
+                });
+        }
+
+        function removeFromWatchlist(item, server) {
+            fetch("/watchlist", {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ item, server })
+            })
+                .then(() => location.reload());
+        }
+
+        window.addEventListener("load", () => {
+            performSearch();
+        });
+
+        setInterval(() => {
+            performSearch();
+        }, 60000);
+    </script>
+</body>
+
+</html>
