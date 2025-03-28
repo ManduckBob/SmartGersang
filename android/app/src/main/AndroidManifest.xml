@@ -1,4 +1,10 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.smartgersang">  <!-- 👉 이 줄이 없으면 추가하고 -->
+
+    <!-- ✅ 이 줄 추가! -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- ✅ HTTPS가 아닌 URL을 쓰거나 일단 안정적으로 보이게 하려면 이거도 추가 -->
+    
     <application
         android:label="smartgersang"
         android:name="${applicationName}"

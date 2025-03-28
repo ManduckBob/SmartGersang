@@ -1,11 +1,15 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, session
 import requests
 import json
 import os
 import urllib.parse
 from statistics import mean
+from flask_cors import CORS
+from uuid import uuid4
 
 app = Flask(__name__)
+CORS(app)
+app.secret_key = os.environ.get("SECRET_KEY", str(uuid4()))  # 세션을 위한 비밀키
 
 server_map = {
     "백호": 1,
@@ -14,17 +18,26 @@ server_map = {
     "청룡": 4
 }
 
-WATCHLIST_FILE = "watchlist.json"
 ALERT_KEYWORDS_FILE = "alert_keywords.json"
 
+
+def get_watchlist_filename():
+    user_id = session.get("user_id")
+    if not user_id:
+        user_id = str(uuid4())
+        session["user_id"] = user_id
+    return f"watchlist_{user_id}.json"
+
 def load_watchlist():
-    if os.path.exists(WATCHLIST_FILE):
-        with open(WATCHLIST_FILE, "r", encoding="utf-8") as f:
+    file = get_watchlist_filename()
+    if os.path.exists(file):
+        with open(file, "r", encoding="utf-8") as f:
             return json.load(f)
     return []
 
 def save_watchlist(watchlist):
-    with open(WATCHLIST_FILE, "w", encoding="utf-8") as f:
+    file = get_watchlist_filename()
+    with open(file, "w", encoding="utf-8") as f:
         json.dump(watchlist, f, ensure_ascii=False, indent=2)
 
 def load_alert_keywords():
@@ -190,5 +203,5 @@ def proxy_saton():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))  # Render가 할당해주는 포트를 사용
+    port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
