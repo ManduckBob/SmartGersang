@@ -93,6 +93,19 @@
 
   <button onclick="addToWatchlist()">➕ 관심 목록에 추가</button>
 
+  <h2>🔍 검색 결과</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>아이템명</th>
+        <th>판매자</th>
+        <th>수량</th>
+        <th>가격</th>
+      </tr>
+    </thead>
+    <tbody id="search-result-table"></tbody>
+  </table>
+
   <h2>📌 관심 목록 시세 분석</h2>
   <table>
     <thead>
@@ -113,10 +126,12 @@
     const autocompleteBox = document.getElementById("autocomplete");
     const exactCheckbox = document.getElementById("exactSearch");
     const resultTable = document.getElementById("watchlist-table");
+    const searchResultTable = document.getElementById("search-result-table");
 
     serverSelect.value = localStorage.getItem("selectedServer") || "현무";
     serverSelect.addEventListener("change", () => {
       localStorage.setItem("selectedServer", serverSelect.value);
+      performSearch();
     });
 
     let autocompleteItems = [];
@@ -144,6 +159,7 @@
         if (selected) {
           keywordInput.value = selected.textContent;
           clearAutocomplete();
+          performSearch();
         }
       }
     });
@@ -175,6 +191,7 @@
           res = await fetch(`/search?keyword=${encodeURIComponent(keyword)}&server=${server}&exact=${exact}`);
         }
         const data = await res.json();
+        renderSearchResults(data, !!keyword);
 
         if (keyword) {
           const unique = [...new Set(data.map(d => d.itemName))].slice(0, 10);
@@ -195,6 +212,7 @@
             div.onclick = () => {
               keywordInput.value = name;
               clearAutocomplete();
+              performSearch();
             };
             autocompleteBox.appendChild(div);
             autocompleteItems.push(div);
@@ -216,6 +234,30 @@
       } catch (err) {
         console.error("❌ 검색 실패:", err);
       }
+    }
+
+    function renderSearchResults(data, shouldSort = false) {
+      searchResultTable.innerHTML = "";
+
+      if (!data || data.length === 0) {
+        searchResultTable.innerHTML = `<tr><td colspan="4" style="color: gray;">검색 결과 없음 😥</td></tr>`;
+        return;
+      }
+
+      if (shouldSort) {
+        data.sort((a, b) => a.price - b.price);
+      }
+
+      data.forEach(row => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><strong>${row.itemName}</strong></td>
+          <td style="color:blue">${row.characterName}</td>
+          <td>${row.quantity}</td>
+          <td>${row.price.toLocaleString()}</td>
+        `;
+        searchResultTable.appendChild(tr);
+      });
     }
 
     function updateHighlight() {
@@ -258,7 +300,7 @@
           `;
           resultTable.appendChild(row);
         } catch (err) {
-          console.error("❌ 관심목록 데이터 로딩 실패:", err);
+          console.error("❌ 관심목록 로딩 실패:", err);
         }
       }
     }
