@@ -3,11 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>육의전 실시간 검색기</title>
-
-  <!-- ✅ 모바일용 뷰포트 설정 -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -37,7 +33,6 @@
 
     input, select, button {
       padding: 6px;
-      margin: 4px 0;
       font-size: 14px;
     }
 
@@ -76,6 +71,24 @@
     label {
       font-size: 14px;
     }
+
+    .flex-input {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .flex-input input {
+      flex: 2;
+    }
+
+    .flex-input button {
+      flex: 1;
+    }
+
+    .toggle-row {
+      margin-top: 6px;
+    }
   </style>
 </head>
 
@@ -96,15 +109,18 @@
     <option>청룡</option>
   </select>
 
-  <br><br>
+  <!-- 🔻 아이템 입력창 + 버튼 한 줄 -->
+  <div class="flex-input">
+    <input type="text" id="keyword" placeholder="예: 천상초" autocomplete="off">
+    <button onclick="addToWatchlist()">➕ 관심 목록</button>
+  </div>
 
-  <label for="keyword">아이템 이름:</label>
-  <input type="text" id="keyword" placeholder="예: 천상초" autocomplete="off">
-  <label><input type="checkbox" id="exactSearch"> 정확한 이름만 검색</label>
+  <!-- 🔻 정확한 이름만 검색 체크박스 다음 줄로 -->
+  <div class="toggle-row">
+    <label><input type="checkbox" id="exactSearch"> 정확한 이름만 검색</label>
+  </div>
 
   <div id="autocomplete" class="autocomplete-list"></div>
-
-  <button onclick="addToWatchlist()">➕ 관심 목록에 추가</button>
 
   <h2>🔍 검색 결과</h2>
   <table>
