@@ -1,11 +1,15 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, session
 import requests
 import json
 import os
 import urllib.parse
 from statistics import mean
+from flask_cors import CORS
+from uuid import uuid4
 
 app = Flask(__name__)
+CORS(app)
+app.secret_key = os.environ.get("SECRET_KEY", str(uuid4()))
 
 server_map = {
     "백호": 1,
@@ -37,6 +41,8 @@ def search():
     server = request.args.get("server", "백호")
     server_id = server_map.get(server, 1)
 
+    print(f"[🔍 검색 요청] keyword='{keyword}', server='{server}'")
+
     params = {"page": 0, "size": 20}
     if keyword:
         params["itemName"] = keyword
@@ -66,38 +72,6 @@ def search():
         })
 
     return jsonify(results)
-
-@app.route("/analyze", methods=["POST"])
-def analyze():
-    data = request.json or []
-    result = []
-
-    for item in data:
-        server = item.get("server")
-        keyword = item.get("item")
-        server_id = server_map.get(server, 1)
-
-        try:
-            res = requests.get(
-                f"https://api.gersanginfo.com/api/market/{server_id}/search",
-                params={"page": 0, "size": 100, "itemName": keyword},
-                headers={"User-Agent": "Mozilla/5.0"}
-            )
-            entries = res.json().get("content", [])
-            prices = [e["price"] for e in entries if "price" in e]
-            lowest = min(prices) if prices else None
-            avg = int(mean(prices)) if prices else None
-
-            result.append({
-                "item": keyword,
-                "server": server,
-                "lowest": lowest,
-                "average": avg
-            })
-        except Exception as e:
-            print(f"[ERROR] 분석 실패 ({keyword}): {e}")
-
-    return jsonify(result)
 
 @app.route("/alert-keywords", methods=["GET", "POST", "DELETE"])
 def alert_keywords():
