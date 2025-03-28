@@ -1,47 +1,54 @@
 <!DOCTYPE html>
 <html lang="ko">
-
 <head>
   <meta charset="UTF-8" />
   <title>육의전 실시간 검색기</title>
+
+  <!-- ✅ 모바일 확대/축소 비활성화 + 고정 스케일 설정 -->
+  <meta name="viewport" content="width=480, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
   <style>
     body {
-      font-family: Arial;
-      padding: 20px;
+      font-family: Arial, sans-serif;
+      padding: 12px;
+      max-width: 480px;
+      margin: 0 auto;
+      box-sizing: border-box;
     }
 
     h1 {
       margin-top: 60px;
+      font-size: 20px;
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 20px;
+      margin-top: 16px;
+      font-size: 14px;
     }
 
-    th,
-    td {
+    th, td {
       border: 1px solid #ccc;
-      padding: 8px;
+      padding: 6px;
       text-align: center;
     }
 
-    input,
-    select,
-    button {
+    input, select, button {
       padding: 6px;
-      margin: 4px;
+      margin: 4px 0;
+      font-size: 14px;
     }
 
     .autocomplete-list {
       border: 1px solid #ccc;
-      max-height: 120px;
+      max-height: 100px;
       overflow-y: auto;
       position: absolute;
       background: white;
       z-index: 99;
       display: none;
+      width: calc(100% - 24px);
     }
 
     .autocomplete-item {
@@ -62,6 +69,11 @@
       border-radius: 6px;
       box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
       z-index: 999;
+      font-size: 14px;
+    }
+
+    label {
+      font-size: 14px;
     }
   </style>
 </head>
