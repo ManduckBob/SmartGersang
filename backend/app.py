@@ -6,6 +6,8 @@ import urllib.parse
 from statistics import mean
 from flask_cors import CORS
 from uuid import uuid4
+from google.oauth2 import service_account
+import google.auth.transport.requests
 
 app = Flask(__name__)
 CORS(app)
@@ -30,9 +32,90 @@ def save_alert_keywords(keywords):
     with open(ALERT_KEYWORDS_FILE, "w", encoding="utf-8") as f:
         json.dump(keywords, f, ensure_ascii=False, indent=2)
 
+def send_fcm_notification(target_token, title, body):
+    SERVICE_ACCOUNT_FILE = 'smartgersang-firebase-adminsdk-fbsvc-324fd474b9.json'
+    PROJECT_ID = 'smartgersang'
+    SCOPES = ['https://www.googleapis.com/auth/firebase.messaging']
+
+    try:
+        credentials = service_account.Credentials.from_service_account_file(
+            SERVICE_ACCOUNT_FILE, scopes=SCOPES
+        )
+        auth_req = google.auth.transport.requests.Request()
+        credentials.refresh(auth_req)
+        access_token = credentials.token
+
+        url = f'https://fcm.googleapis.com/v1/projects/{PROJECT_ID}/messages:send'
+        headers = {
+            'Authorization': f'Bearer {access_token}',
+            'Content-Type': 'application/json; UTF-8',
+        }
+        message = {
+            "message": {
+                "token": target_token,
+                "notification": {
+                    "title": title,
+                    "body": body
+                }
+            }
+        }
+
+        response = requests.post(url, headers=headers, data=json.dumps(message))
+
+        return {
+            "status_code": response.status_code,
+            "response": response.json() if response.status_code == 200 else response.text
+        }
+
+    except Exception as e:
+        return {
+            "status_code": 500,
+            "error": str(e)
+        }
+
 @app.route("/")
 def index():
     return render_template("index.html")
+
+@app.route("/saton")
+def saton():
+    return render_template("saton.html")
+
+@app.route("/proxy-saton")
+def proxy_saton():
+    server_id = request.args.get("server", "3")
+    content = request.args.get("content", "")
+    base_url = f"https://api.gersanginfo.com/api/global-message/{server_id}/search"
+    params = "?page=0&size=50"
+
+    if content:
+        encoded = urllib.parse.quote(content)
+        params += f"&content={encoded}"
+
+    url = base_url + params
+    headers = {"User-Agent": "Mozilla/5.0"}
+
+    try:
+        res = requests.get(url, headers=headers)
+        res.raise_for_status()
+        data = res.json()
+        messages = data.get("content", [])
+
+        # 🔍 키워드 감지 및 FCM 전송
+        keywords = load_alert_keywords()
+        target_token = os.environ.get("FCM_TARGET_TOKEN")  # 환경변수 또는 하드코딩
+
+        for msg in messages:
+            message_text = msg.get("content", "")
+            for keyword in keywords:
+                if keyword in message_text:
+                    print(f"[📨 키워드 감지] '{keyword}' in '{message_text}'")
+                    send_fcm_notification(target_token, "새 메시지 감지", message_text)
+                    break  # 하나만 감지되면 중복 전송 방지
+
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/search")
 def search():
@@ -40,8 +123,6 @@ def search():
     exact = request.args.get("exact", "false").lower() == "true"
     server = request.args.get("server", "백호")
     server_id = server_map.get(server, 1)
-
-    print(f"[🔍 검색 요청] keyword='{keyword}', server='{server}'")
 
     params = {"page": 0, "size": 20}
     if keyword:
@@ -56,7 +137,6 @@ def search():
         res.raise_for_status()
         data = res.json().get("content", [])
     except Exception as e:
-        print("[ERROR]", e)
         return jsonify([])
 
     results = []
@@ -93,31 +173,6 @@ def alert_keywords():
             keywords.remove(keyword)
             save_alert_keywords(keywords)
         return jsonify({"status": "deleted", "keywords": keywords})
-
-@app.route("/saton")
-def saton():
-    return render_template("saton.html")
-
-@app.route("/proxy-saton")
-def proxy_saton():
-    server_id = request.args.get("server", "3")
-    content = request.args.get("content", "")
-    base_url = f"https://api.gersanginfo.com/api/global-message/{server_id}/search"
-    params = f"?page=0&size=50"
-
-    if content:
-        encoded = urllib.parse.quote(content)
-        params += f"&content={encoded}"
-
-    url = base_url + params
-    headers = {"User-Agent": "Mozilla/5.0"}
-
-    try:
-        res = requests.get(url, headers=headers)
-        res.raise_for_status()
-        return jsonify(res.json())
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

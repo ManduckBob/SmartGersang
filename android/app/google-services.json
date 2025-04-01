@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "837547458506",
+    "project_id": "smartgersang",
+    "storage_bucket": "smartgersang.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:837547458506:android:55374c6adc33dd8b001933",
+        "android_client_info": {
+          "package_name": "com.example.smartgersang"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDFmdKaBrF9Yp189brK50kYcmt3Q3HrjLs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
