@@ -1,13 +1,16 @@
-from flask import Flask, request, jsonify, render_template, session
+from flask import Flask, request, jsonify, render_template
 import requests
 import json
 import os
 import urllib.parse
-from statistics import mean
 from flask_cors import CORS
 from uuid import uuid4
 from google.oauth2 import service_account
 import google.auth.transport.requests
+from dotenv import load_dotenv
+
+# ✅ 환경변수 로딩
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
@@ -32,20 +35,24 @@ def save_alert_keywords(keywords):
     with open(ALERT_KEYWORDS_FILE, "w", encoding="utf-8") as f:
         json.dump(keywords, f, ensure_ascii=False, indent=2)
 
+# ✅ FCM 알림 전송 함수
 def send_fcm_notification(target_token, title, body):
-    SERVICE_ACCOUNT_FILE = 'smartgersang-firebase-adminsdk-fbsvc-324fd474b9.json'
-    PROJECT_ID = 'smartgersang'
-    SCOPES = ['https://www.googleapis.com/auth/firebase.messaging']
+    service_account_info = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+    project_id = 'smartgersang'
+    scopes = ['https://www.googleapis.com/auth/firebase.messaging']
 
     try:
-        credentials = service_account.Credentials.from_service_account_file(
-            SERVICE_ACCOUNT_FILE, scopes=SCOPES
+        if not service_account_info:
+            raise Exception("환경변수 'GOOGLE_SERVICE_ACCOUNT_JSON'이 설정되지 않았습니다.")
+
+        credentials = service_account.Credentials.from_service_account_info(
+            json.loads(service_account_info), scopes=scopes
         )
         auth_req = google.auth.transport.requests.Request()
         credentials.refresh(auth_req)
         access_token = credentials.token
 
-        url = f'https://fcm.googleapis.com/v1/projects/{PROJECT_ID}/messages:send'
+        url = f'https://fcm.googleapis.com/v1/projects/{project_id}/messages:send'
         headers = {
             'Authorization': f'Bearer {access_token}',
             'Content-Type': 'application/json; UTF-8',
@@ -61,7 +68,6 @@ def send_fcm_notification(target_token, title, body):
         }
 
         response = requests.post(url, headers=headers, data=json.dumps(message))
-
         return {
             "status_code": response.status_code,
             "response": response.json() if response.status_code == 200 else response.text
@@ -101,9 +107,8 @@ def proxy_saton():
         data = res.json()
         messages = data.get("content", [])
 
-        # 🔍 키워드 감지 및 FCM 전송
         keywords = load_alert_keywords()
-        target_token = os.environ.get("FCM_TARGET_TOKEN")  # 환경변수 또는 하드코딩
+        target_token = os.environ.get("FCM_TARGET_TOKEN")
 
         for msg in messages:
             message_text = msg.get("content", "")
@@ -111,7 +116,7 @@ def proxy_saton():
                 if keyword in message_text:
                     print(f"[📨 키워드 감지] '{keyword}' in '{message_text}'")
                     send_fcm_notification(target_token, "새 메시지 감지", message_text)
-                    break  # 하나만 감지되면 중복 전송 방지
+                    break
 
         return jsonify(data)
     except Exception as e:
