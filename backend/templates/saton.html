@@ -4,32 +4,41 @@
 <head>
   <meta charset="UTF-8" />
   <title>📨 사통팔달 실시간 메시지</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
   <style>
     body {
       font-family: Arial, sans-serif;
-      padding: 20px;
+      padding: 12px;
+      margin: 0 auto;
+      max-width: 400px;
+      box-sizing: border-box;
     }
 
     h1 {
       margin-top: 60px;
+      font-size: 20px;
       color: #333;
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 16px;
+      margin-top: 12px;
+      font-size: 14px;
     }
 
     th, td {
       border: 1px solid #ccc;
-      padding: 8px;
+      padding: 6px;
       text-align: left;
     }
 
     input, select, button {
       padding: 6px;
-      margin: 4px;
+      margin: 4px 0;
+      font-size: 14px;
+      box-sizing: border-box;
     }
 
     .top-bar {
@@ -41,6 +50,7 @@
       border-radius: 6px;
       box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
       z-index: 999;
+      font-size: 14px;
     }
 
     .keyword-tag {
@@ -48,8 +58,8 @@
       background: #eef;
       border-radius: 12px;
       padding: 4px 10px;
-      margin: 2px;
-      font-size: 14px;
+      margin: 2px 4px 2px 0;
+      font-size: 13px;
     }
 
     .keyword-tag button {
@@ -82,7 +92,7 @@
   <input type="text" id="keyword" placeholder="예: 강화, 무기, 판매">
   <button id="expand-button">➕ 더보기</button>
 
-  <div style="margin-top: 20px;">
+  <div style="margin-top: 12px;">
     <label for="alertKeyword">🔔 알림 키워드 등록:</label>
     <input type="text" id="alertKeyword" placeholder="예: 고천극">
     <button onclick="addAlertKeyword()">추가</button>
