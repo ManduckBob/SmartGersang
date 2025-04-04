@@ -8,8 +8,9 @@ from uuid import uuid4
 from google.oauth2 import service_account
 import google.auth.transport.requests
 from dotenv import load_dotenv
+from datetime import datetime, timedelta
 
-# ✅ 환경변수 로딩
+# ✅ 환경변수 로딩 (.env 로컬, Render는 자동 로드)
 load_dotenv()
 
 app = Flask(__name__)
@@ -110,13 +111,28 @@ def proxy_saton():
         keywords = load_alert_keywords()
         target_token = os.environ.get("FCM_TARGET_TOKEN")
 
+        # ✅ 최근 5분 이내 메시지만 필터링
+        now = datetime.utcnow()
+        five_minutes_ago = now - timedelta(minutes=5)
+
         for msg in messages:
+            created_at = msg.get("createdAt")
             message_text = msg.get("content", "")
-            for keyword in keywords:
-                if keyword in message_text:
-                    print(f"[📨 키워드 감지] '{keyword}' in '{message_text}'")
-                    send_fcm_notification(target_token, "새 메시지 감지", message_text)
-                    break
+
+            if not created_at:
+                continue
+
+            try:
+                created_time = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+            except Exception:
+                continue
+
+            if created_time >= five_minutes_ago:
+                for keyword in keywords:
+                    if keyword in message_text:
+                        print(f"[📨 키워드 감지] '{keyword}' in '{message_text}'")
+                        send_fcm_notification(target_token, "새 메시지 감지", message_text)
+                        break
 
         return jsonify(data)
     except Exception as e:
@@ -141,7 +157,7 @@ def search():
         )
         res.raise_for_status()
         data = res.json().get("content", [])
-    except Exception as e:
+    except Exception:
         return jsonify([])
 
     results = []
@@ -179,6 +195,19 @@ def alert_keywords():
             save_alert_keywords(keywords)
         return jsonify({"status": "deleted", "keywords": keywords})
 
+@app.route("/test-push")
+def test_push():
+    target_token = os.environ.get("FCM_TARGET_TOKEN")
+    result = send_fcm_notification(
+        target_token,
+        "🔔 테스트 알림",
+        "이 알림이 도착하면 FCM 연결 성공!"
+    )
+    print("📬 테스트 결과:", result)
+    return jsonify(result)
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
+

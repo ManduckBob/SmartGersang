@@ -14,3 +14,5 @@ key.properties
 **/*.jks
 smartgersang-firebase-adminsdk-*.json
 .env
+SmartGersang/
+SmartGersang.bak/

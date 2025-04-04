@@ -8,8 +8,8 @@ plugins {
     id("com.android.application")
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
-    // ✅ 버전 없는 기본 선언
     id("com.google.gms.google-services")
+    // ✅ 버전 없는 기본 선언
 }
 
 android {

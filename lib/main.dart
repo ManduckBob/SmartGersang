@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:flutter/services.dart';
 
 // 🔹 백그라운드 푸시 메시지 처리
 @pragma('vm:entry-point')
@@ -28,6 +29,15 @@ void main() async {
   );
 
   await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+
+  // ✅ 상태표시줄 블랙 + 흰색 아이콘 설정
+  SystemChrome.setSystemUIOverlayStyle(
+    SystemUiOverlayStyle(
+      statusBarColor: Colors.black,
+      statusBarIconBrightness: Brightness.light,
+      statusBarBrightness: Brightness.dark,
+    ),
+  );
 
   runApp(const MyApp());
 }
@@ -57,46 +67,34 @@ class _WebAppPageState extends State<WebAppPage> {
   @override
   void initState() {
     super.initState();
+    print("🔥 initState 호출됨");
     _setupFCM();
   }
 
   void _setupFCM() async {
+    print("⚙️ _setupFCM 시작됨");
+
     NotificationSettings settings =
         await _firebaseMessaging.requestPermission();
+
+    print("🔐 권한 상태: ${settings.authorizationStatus}");
 
     if (settings.authorizationStatus == AuthorizationStatus.authorized) {
       print('🔔 알림 권한 허용됨');
 
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         print("📥 포그라운드 메시지 수신: ${message.notification?.title}");
-        _showNotification(message);
       });
+
+      final fcmToken = await _firebaseMessaging.getToken();
+      if (fcmToken != null) {
+        print("📱 FCM 토큰: $fcmToken");
+      } else {
+        print("❌ FCM 토큰을 가져오지 못했어요.");
+      }
+    } else {
+      print("🚫 알림 권한이 거부됨");
     }
-
-    final fcmToken = await _firebaseMessaging.getToken();
-    print("📱 FCM 토큰: $fcmToken");
-  }
-
-  Future<void> _showNotification(RemoteMessage message) async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
-        AndroidNotificationDetails(
-          'default_notification_channel_id',
-          '알림',
-          channelDescription: '기본 알림 채널',
-          importance: Importance.max,
-          priority: Priority.high,
-          showWhen: true,
-        );
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(
-      android: androidPlatformChannelSpecifics,
-    );
-
-    await flutterLocalNotificationsPlugin.show(
-      0,
-      message.notification?.title ?? '알림',
-      message.notification?.body ?? '메시지 내용 없음',
-      platformChannelSpecifics,
-    );
   }
 
   @override
