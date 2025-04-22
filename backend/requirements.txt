@@ -5,5 +5,5 @@ lxml
 gunicorn
 flask_cors
 google-auth
-requests
 python-dotenv
+requests
