@@ -90,7 +90,7 @@
 
   <label for="keyword">메시지 검색어:</label>
   <input type="text" id="keyword" placeholder="예: 강화, 무기, 판매">
-  <button id="expand-button">➕ 더보기</button>
+ 
 
   <div style="margin-top: 12px;">
     <label for="alertKeyword">🔔 알림 키워드 등록:</label>
@@ -109,6 +109,10 @@
     </thead>
     <tbody id="message-table"></tbody>
   </table>
+
+  <div style="text-align: center; margin-top: 8px;">
+    <button id="expand-button">➕ 더보기</button>
+  </div>
 
   <script>
     let currentServer = localStorage.getItem("satonServer") || "3";

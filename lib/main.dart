@@ -5,11 +5,12 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter/services.dart';
 
-// 🔹 백그라운드 푸시 메시지 처리
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  print("📨 백그라운드 메시지 수신: ${message.messageId}");
+  print(
+    "\uD83D\uDCE8 \uBC31\uADF8\uB77C\uC6B4\uB4DC \uBA54\uC2DC\uC9C0 \uC218\uC2E0: \${message.messageId}",
+  );
 }
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -30,12 +31,16 @@ void main() async {
 
   await flutterLocalNotificationsPlugin.initialize(initializationSettings);
 
-  // ✅ 상태표시줄 블랙 + 흰색 아이콘 설정
+  SystemChrome.setEnabledSystemUIMode(
+    SystemUiMode.manual,
+    overlays: [SystemUiOverlay.top, SystemUiOverlay.bottom],
+  );
   SystemChrome.setSystemUIOverlayStyle(
-    SystemUiOverlayStyle(
+    const SystemUiOverlayStyle(
       statusBarColor: Colors.black,
       statusBarIconBrightness: Brightness.light,
-      statusBarBrightness: Brightness.dark,
+      systemNavigationBarColor: Colors.black,
+      systemNavigationBarIconBrightness: Brightness.light,
     ),
   );
 
@@ -67,43 +72,46 @@ class _WebAppPageState extends State<WebAppPage> {
   @override
   void initState() {
     super.initState();
-    print("🔥 initState 호출됨");
     _setupFCM();
   }
 
   void _setupFCM() async {
-    print("⚙️ _setupFCM 시작됨");
-
     NotificationSettings settings =
         await _firebaseMessaging.requestPermission();
 
-    print("🔐 권한 상태: ${settings.authorizationStatus}");
-
     if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      print('🔔 알림 권한 허용됨');
-
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        print("📥 포그라운드 메시지 수신: ${message.notification?.title}");
+        print(
+          "\uD83D\uDCE5 \uD3EC\uADF9\uB77C\uC6B4\uB4DC \uBA54\uC2DC\uC9C0 \uC218\uC2E0: \${message.notification?.title}",
+        );
       });
 
       final fcmToken = await _firebaseMessaging.getToken();
       if (fcmToken != null) {
-        print("📱 FCM 토큰: $fcmToken");
+        print("\uD83D\uDCF1 FCM \uD1A0\uD070: \$fcmToken");
       } else {
-        print("❌ FCM 토큰을 가져오지 못했어요.");
+        print(
+          "\u274C FCM \uD1A0\uD070\uC744 \uAC00\uC9C0\uC624\uC9C0 \uBABB\uD588\uC5B4\uC694.",
+        );
       }
-    } else {
-      print("🚫 알림 권한이 거부됨");
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
+      extendBodyBehindAppBar: true, // 상태바 영역까지 확장 허용
+      backgroundColor: Colors.black, // 혹시 모를 배경색 처리
+      body: Container(
+        padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
+        color: Colors.black,
         child: InAppWebView(
           initialUrlRequest: URLRequest(
             url: WebUri("https://smartgersang.onrender.com"),
+          ),
+          initialSettings: InAppWebViewSettings(
+            transparentBackground: false,
+            useHybridComposition: true,
           ),
         ),
       ),
